@@ -89,6 +89,38 @@ describe('TicketsController', () => {
     });
 
     describe('registrationAddressChange', () => {
+      it('throws if ticket was duplicated', async () => {
+        const company = await Company.create({ name: 'First Company' });
+        await User.create({
+          name: 'First User',
+          role: UserRole.corporateSecretary,
+          companyId: company.id,
+        });
+
+        await controller.create({
+          companyId: company.id,
+          type: TicketType.registrationAddressChange,
+        });
+
+        await expect(
+          controller.create({
+            companyId: company.id,
+            type: TicketType.registrationAddressChange,
+          }),
+        ).rejects.toEqual(new ConflictException("Ticket already exists"));
+      });
+
+      it('throw if there is no secretary AND director', async () => {
+        const company = await Company.create({ name: 'First Company' });
+
+        await expect(
+          controller.create({
+            companyId: company.id,
+            type: TicketType.managementReport,
+          }),
+        ).rejects.toEqual(new ConflictException("Cannot find accountant to create a ticket"));
+      });
+
       it('creates registrationAddressChange ticket', async () => {
         const company = await Company.create({ name: 'test' });
         const user = await User.create({
@@ -146,6 +178,63 @@ describe('TicketsController', () => {
           ),
         );
       });
+    });
+
+    describe('strikeOff', () => {
+      it('creates strikeOff ticket', async () => {
+        const company = await Company.create({ name: 'company_1' });
+        await User.create({
+          name: 'accountant_1',
+          role: UserRole.accountant,
+          companyId: company.id,
+        });
+
+        await controller.create({
+          companyId: company.id,
+          type: TicketType.managementReport,
+        });
+
+        const ticketStrikeOff = await controller.create({
+          companyId: company.id,
+          type: TicketType.strikeOff,
+        });
+
+        expect(ticketStrikeOff.category).toBe(TicketCategory.management);
+        expect(ticketStrikeOff.status).toBe(TicketStatus.open);
+      });
+
+      it('throws if there are no directors', async () => {
+        const company = await Company.create({ name: 'company_2' });
+
+        await expect(
+          controller.create({
+            companyId: company.id,
+            type: TicketType.strikeOff,
+          }),
+        ).rejects.toEqual(new ConflictException("Cannot find director to create a ticket"));
+      });
+
+      it('throws if there are multiple directors', async () => {
+        const company = await Company.create({ name: 'company_3' });
+        await User.create({
+          name: 'director_3',
+          role: UserRole.director,
+          companyId: company.id,
+        });
+        await User.create({
+          name: 'director_4',
+          role: UserRole.director,
+          companyId: company.id,
+        });
+
+        await expect(
+          controller.create({
+            companyId: company.id,
+            type: TicketType.strikeOff,
+          }),
+        ).rejects.toEqual(new ConflictException("Multiple users with role Director. Cannot create a ticket"));
+      });
+
     });
   });
 });

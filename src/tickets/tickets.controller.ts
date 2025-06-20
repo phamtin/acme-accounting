@@ -46,7 +46,11 @@ export class TicketsController {
       return this.createTicketAddressChange(companyId);
     }
 
-    throw new BadRequestException("Unsupported ticket type");
+    if (type === TicketType.strikeOff) {
+      return this.createTicketStrikeOff(companyId);
+    }
+
+    throw new BadRequestException("Ticket haven't been supported yet");
   }
 
   private async createTicketManagementReport(companyId: number) {
@@ -115,6 +119,37 @@ export class TicketsController {
       throw new ConflictException("Multiple users with role Director. Cannot create a ticket");
     
     const assignee = (secretary || director) as User;
+
+    return (await this.createTicket(assignee.id, companyId, category, ticketType));
+  }
+
+  private async createTicketStrikeOff(companyId: number) {
+    const ticketType = TicketType.strikeOff;
+    const category = TicketCategory.management;
+    const userRole = UserRole.director;
+
+    const director = await User.findAll({
+      where: { 
+        companyId, 
+        role: userRole
+      },
+    })
+    if (!director.length) 
+      throw new ConflictException("Cannot find director to create a ticket");
+
+    if (director.length > 1) 
+      throw new ConflictException("Multiple users with role Director. Cannot create a ticket");
+
+    const assignee = director[0];
+
+    await Ticket.update(
+      {
+        status: TicketStatus.resolved,
+      },
+      {
+        where: { companyId },
+      },
+    )
 
     return (await this.createTicket(assignee.id, companyId, category, ticketType));
   }

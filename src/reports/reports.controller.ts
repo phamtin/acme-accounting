@@ -16,10 +16,10 @@ export class ReportsController {
 
   @Post()
   @HttpCode(201)
-  generate() {
+  async generate() {
     this.reportsService.accounts();
     this.reportsService.yearly();
     this.reportsService.fs();
-    return { message: 'finished' };
+    return { message: 'processing' }; // Just give the promise that the reports are "processing"
   }
 }
